@@ -1,0 +1,208 @@
+"use client"
+
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell
+} from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import type { FinancialSummary } from "@/lib/supabase"
+import { useAdmin } from "@/app/admin/layout"
+
+interface RevenueChartProps {
+    summary: FinancialSummary | null
+    loading?: boolean
+}
+
+const COLORS = ['#075E54', '#128C7E', '#25D366', '#f59e0b']
+
+export function MonthlyRevenueChart({ summary, loading }: RevenueChartProps) {
+    const { instanceSettings } = useAdmin()
+    const currencySymbol = instanceSettings?.currencySymbol ?? "Rs."
+
+    if (loading) {
+        return (
+            <Card className="border-0 shadow-lg shadow-manzhil-teal/5">
+                <CardHeader>
+                    <CardTitle>Monthly Revenue & Expenses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[220px] sm:h-[300px] flex items-center justify-center bg-gray-50 rounded animate-pulse">
+                        <span className="text-muted-foreground">Loading chart...</span>
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    const data = summary?.monthlyData || []
+
+    const formatCurrency = (value: number) => {
+        if (value >= 1000000) {
+            return `${(value / 1000000).toFixed(1)}M`
+        } else if (value >= 1000) {
+            return `${(value / 1000).toFixed(0)}K`
+        }
+        return value.toString()
+    }
+
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-white p-3 border rounded-lg shadow-lg">
+                    <p className="font-medium mb-2">{label}</p>
+                    {payload.map((entry: any, index: number) => (
+                        <p key={index} className="text-sm" style={{ color: entry.color }}>
+                            {entry.name}: {currencySymbol} {entry.value.toLocaleString()}
+                        </p>
+                    ))}
+                </div>
+            )
+        }
+        return null
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    Monthly Revenue & Expenses
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="h-[220px] sm:h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                            <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 12 }} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend />
+                            <Bar
+                                dataKey="bookingIncome"
+                                name="Booking Income"
+                                fill="#075E54"
+                                radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                                dataKey="maintenanceIncome"
+                                name="Maintenance Income"
+                                fill="#128C7E"
+                                radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                                dataKey="expenses"
+                                name="Expenses"
+                                fill="#f59e0b"
+                                radius={[4, 4, 0, 0]}
+                            />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+export function RevenueBreakdownPieChart({ summary, loading }: RevenueChartProps) {
+    const { instanceSettings } = useAdmin()
+    const currencySymbol = instanceSettings?.currencySymbol ?? "Rs."
+
+    if (loading) {
+        return (
+            <Card className="border-0 shadow-lg shadow-manzhil-teal/5">
+                <CardHeader>
+                    <CardTitle>Revenue Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[200px] sm:h-[250px] flex items-center justify-center bg-gray-50 rounded animate-pulse">
+                        <span className="text-muted-foreground">Loading chart...</span>
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    const data = [
+        { name: 'Booking Revenue', value: summary?.bookingRevenue || 0, color: '#075E54' },
+        { name: 'Maintenance Revenue', value: summary?.maintenanceRevenue || 0, color: '#128C7E' }
+    ].filter(d => d.value > 0)
+
+    const formatCurrency = (value: number) => `${currencySymbol} ${value.toLocaleString()}`
+
+    const CustomTooltip = ({ active, payload }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-white p-3 border rounded-lg shadow-lg">
+                    <p className="text-sm font-medium">{payload[0].name}</p>
+                    <p className="text-sm">{formatCurrency(payload[0].value)}</p>
+                </div>
+            )
+        }
+        return null
+    }
+
+    if (data.length === 0) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Revenue Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[200px] sm:h-[250px] flex items-center justify-center text-muted-foreground">
+                        No revenue data available
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Revenue Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="h-[200px] sm:h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={90}
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {data.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="flex justify-center gap-6 mt-4">
+                    {data.map((entry, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                            <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: entry.color }}
+                            />
+                            <span className="text-sm text-muted-foreground">{entry.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
